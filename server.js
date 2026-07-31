@@ -31,6 +31,8 @@ io.on('connection', (socket) => {
 
   // 部屋が存在するかチェックするイベント
   socket.on('check-room', ({ roomId }, callback) => {
+    if (typeof callback !== 'function') return;
+    
     const exists = roomUsers.has(roomId) && roomUsers.get(roomId).size > 0;
     callback({ exists });
   });
@@ -79,7 +81,7 @@ io.on('connection', (socket) => {
         // 残ったメンバーに通知
         const users = Array.from(roomMap.values());
         io.to(roomId).emit('room-users', users);
-        socket.to(roomId).emit('user-left', { id: socket.id, name: user.name });
+        socket.to(roomId).emit('user-left', { id: socket.id, name: user ? user.name : '不明' });
 
         if (roomMap.size === 0) {
           roomUsers.delete(roomId);
