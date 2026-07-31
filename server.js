@@ -3,6 +3,14 @@ const http = require('http');
 const { Server } = require('socket.io');
 
 const app = express();
+
+// HTTPリクエストに対するCORSを許可（ping等用）
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+  next();
+});
+
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
@@ -15,19 +23,20 @@ app.get('/ping', (req, res) => {
   res.status(200).send('pong');
 });
 
-// ルームごとの参加者情報を管理 (socket.id -> { name })
+// ルームごとの参加者情報を管理 (socket.id -> { id, name, avatar })
 const roomUsers = new Map();
 
 io.on('connection', (socket) => {
   console.log(`ユーザーが接続しました: ${socket.id}`);
 
-  socket.on('join-room', ({ roomId, name }) => {
+  socket.on('join-room', ({ roomId, name, avatar }) => {
     socket.join(roomId);
     
     if (!roomUsers.has(roomId)) {
       roomUsers.set(roomId, new Map());
     }
-    roomUsers.get(roomId).set(socket.id, { id: socket.id, name });
+    // avatar（アイコン画像URL）も追加で保持
+    roomUsers.get(roomId).set(socket.id, { id: socket.id, name, avatar });
 
     console.log(`ユーザー ${name} (${socket.id}) がルーム ${roomId} に参加しました`);
 
@@ -43,7 +52,7 @@ io.on('connection', (socket) => {
     socket.emit('all-users', otherUsers);
 
     // 自分が入ってきたことを他の人に通知
-    socket.to(roomId).emit('user-joined', { id: socket.id, name });
+    socket.to(roomId).emit('user-joined', { id: socket.id, name, avatar });
   });
 
   socket.on('signal', (data) => {
