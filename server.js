@@ -29,14 +29,6 @@ const roomUsers = new Map();
 io.on('connection', (socket) => {
   console.log(`ユーザーが接続しました: ${socket.id}`);
 
-  // 部屋が存在するかチェックするイベント
-  socket.on('check-room', ({ roomId }, callback) => {
-    if (typeof callback !== 'function') return;
-    
-    const exists = roomUsers.has(roomId) && roomUsers.get(roomId).size > 0;
-    callback({ exists });
-  });
-
   socket.on('join-room', ({ roomId, name, avatar }) => {
     socket.join(roomId);
     
