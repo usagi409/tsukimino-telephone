@@ -16,7 +16,9 @@ const io = new Server(server, {
   cors: {
     origin: "*",
     methods: ["GET", "POST"]
-  }
+  },
+  // パケットサイズの上限を5MBに拡大
+  maxHttpBufferSize: 5 * 1024 * 1024
 });
 
 app.get('/ping', (req, res) => {
@@ -29,13 +31,18 @@ const roomUsers = new Map();
 io.on('connection', (socket) => {
   console.log(`ユーザーが接続しました: ${socket.id}`);
 
-  // 部屋が存在するかチェックするイベント
-  socket.on('check-room', ({ roomId }, callback) => {
-    const exists = roomUsers.has(roomId) && roomUsers.get(roomId).size > 0;
-    callback({ exists });
-  });
+  // join-room 時に mode ('create' または 'join') も受け取る
+  socket.on('join-room', ({ roomId, name, avatar, mode }, callback) => {
+    
+    // 「部屋に入る」モードなのに、部屋が存在しない（または誰もいない）場合の判定
+    if (mode === 'join' && (!roomUsers.has(roomId) || roomUsers.get(roomId).size === 0)) {
+      console.log(`参加失敗: ルーム ${roomId} は存在しません (${name})`);
+      if (typeof callback === 'function') {
+        callback({ success: false, message: '指定されたルームIDは存在しないか、全員退出済みです！' });
+      }
+      return;
+    }
 
-  socket.on('join-room', ({ roomId, name, avatar }) => {
     socket.join(roomId);
     
     if (!roomUsers.has(roomId)) {
@@ -58,6 +65,11 @@ io.on('connection', (socket) => {
 
     // 自分が入ってきたことを他の人に通知
     socket.to(roomId).emit('user-joined', { id: socket.id, name, avatar });
+
+    // 成功したことを呼び出し元に通知
+    if (typeof callback === 'function') {
+      callback({ success: true });
+    }
   });
 
   socket.on('signal', (data) => {
