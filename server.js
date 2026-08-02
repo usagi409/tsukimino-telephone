@@ -48,13 +48,8 @@ io.on('connection', (socket) => {
     if (!roomUsers.has(roomId)) {
       roomUsers.set(roomId, new Map());
     }
-    roomUsers.get(roomId).set(socket.id, { 
-      id: socket.id, 
-      name, 
-      avatar, 
-      isMuted: false, 
-      isDeafened: false 
-    });
+    // 初期状態としてミュート・デフェンド情報も含めて登録
+    roomUsers.get(roomId).set(socket.id, { id: socket.id, name, avatar, isMuted: false, isDeafened: false });
 
     console.log(`ユーザー ${name} (${socket.id}) がルーム ${roomId} に参加しました`);
 
@@ -78,7 +73,7 @@ io.on('connection', (socket) => {
     }
   });
 
-  // ユーザーのミュート状態の変更を同期
+  // ユーザーのミュート・スピーカーオフ状態の変更を同期
   socket.on('update-status', ({ isMuted, isDeafened }) => {
     for (const [roomId, roomMap] of roomUsers.entries()) {
       if (roomMap.has(socket.id)) {
@@ -86,6 +81,7 @@ io.on('connection', (socket) => {
         user.isMuted = isMuted;
         user.isDeafened = isDeafened;
 
+        // 更新されたメンバーリストを部屋全体にブロードキャスト
         const users = Array.from(roomMap.values());
         io.to(roomId).emit('room-users', users);
         break;
