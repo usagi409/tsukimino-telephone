@@ -25,7 +25,7 @@ app.get('/ping', (req, res) => {
   res.status(200).send('pong');
 });
 
-// ルームごとの参加者情報を管理 (roomId -> Map(socket.id -> { id, name, avatar }))
+// ルームごとの参加者情報を管理 (roomId -> Map(socket.id -> { id, name, avatar, isMuted, isDeafened }))
 const roomUsers = new Map();
 
 io.on('connection', (socket) => {
@@ -48,7 +48,13 @@ io.on('connection', (socket) => {
     if (!roomUsers.has(roomId)) {
       roomUsers.set(roomId, new Map());
     }
-    roomUsers.get(roomId).set(socket.id, { id: socket.id, name, avatar });
+    roomUsers.get(roomId).set(socket.id, { 
+      id: socket.id, 
+      name, 
+      avatar, 
+      isMuted: false, 
+      isDeafened: false 
+    });
 
     console.log(`ユーザー ${name} (${socket.id}) がルーム ${roomId} に参加しました`);
 
@@ -69,6 +75,21 @@ io.on('connection', (socket) => {
     // 成功したことを呼び出し元に通知
     if (typeof callback === 'function') {
       callback({ success: true });
+    }
+  });
+
+  // ユーザーのミュート状態の変更を同期
+  socket.on('update-status', ({ isMuted, isDeafened }) => {
+    for (const [roomId, roomMap] of roomUsers.entries()) {
+      if (roomMap.has(socket.id)) {
+        const user = roomMap.get(socket.id);
+        user.isMuted = isMuted;
+        user.isDeafened = isDeafened;
+
+        const users = Array.from(roomMap.values());
+        io.to(roomId).emit('room-users', users);
+        break;
+      }
     }
   });
 
